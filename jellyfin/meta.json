@@ -1,16 +1,16 @@
 {
   "category": "General",
-  "changelog": "Add TV episode playback progress sync, fix Web rating modal review preservation and Jellyfin save fallback.",
+  "changelog": "Enable plugin auto-update by default and polish dark-mode Web rating modal link buttons.",
   "description": "Automatically syncs watched movies, TV episode progress, ratings, and short reviews with CinePersona.",
   "guid": "f62e8471-469b-43d8-b57f-f4a4d7d10002",
   "name": "CinePersona",
   "overview": "Sync watched movies, TV episodes, and ratings with CinePersona",
   "owner": "CinePersona",
   "targetAbi": "10.10.0.0",
-  "timestamp": "2026-11-24T00:00:00.0000000Z",
-  "version": "1.2.0.0",
+  "timestamp": "2026-11-24T11:05:00.0000000Z",
+  "version": "1.2.1.0",
   "status": "Active",
-  "autoUpdate": false,
+  "autoUpdate": true,
   "imagePath": "",
   "assemblies": []
 }

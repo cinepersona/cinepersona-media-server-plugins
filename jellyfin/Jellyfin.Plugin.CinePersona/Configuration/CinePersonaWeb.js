@@ -9,10 +9,10 @@
         }
     } catch (e) {}
 
-    if (window.__cinePersonaWebVersion === "1.2.0") {
+    if (window.__cinePersonaWebVersion === "1.2.1") {
         return;
     }
-    window.__cinePersonaWebVersion = "1.2.0";
+    window.__cinePersonaWebVersion = "1.2.1";
     window.__cinePersonaWebLoaded = true;
 
     var state = {
@@ -257,7 +257,7 @@
             ".cinepersona-review-card.theme-dark .cinepersona-review-action{border-color:#8eb2e4!important;color:#bcd4f2!important}" +
             ".cinepersona-review-card.theme-dark .cinepersona-review-action.primary{background:#4779b6!important;color:#fff!important}" +
             "@media (max-width:560px){.cinepersona-detail-button{padding:.5em .7em;font-size:.88em}.cinepersona-review-card{padding:16px;border-radius:13px}.cinepersona-review-stars{gap:0}.cinepersona-review-star{font-size:23px}}" +
-            ".cinepersona-detail-button{height:2.6em;min-height:2.6em;padding:0 .95em;font-size:1em;font-weight:600;line-height:1}.cinepersona-detail-button .cinepersona-btn-icon,.cinepersona-detail-button .cinepersona-btn-label{display:inline-flex;align-items:center;justify-content:center;height:1em;line-height:1;vertical-align:middle}.cinepersona-detail-button .cinepersona-btn-icon{width:1em;margin-right:.45em}.cinepersona-review-actions{align-items:center;flex-wrap:wrap}.cinepersona-review-action{font:650 14px/1.1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.cinepersona-review-action-link{min-width:0;margin-right:auto;border-color:transparent;padding-left:0;padding-right:0;text-decoration:none;white-space:nowrap}.cinepersona-external-link{color:inherit;text-decoration:none}" +
+            ".cinepersona-detail-button{height:2.6em;min-height:2.6em;padding:0 .95em;font-size:1em;font-weight:600;line-height:1}.cinepersona-detail-button .cinepersona-btn-icon,.cinepersona-detail-button .cinepersona-btn-label{display:inline-flex;align-items:center;justify-content:center;height:1em;line-height:1;vertical-align:middle}.cinepersona-detail-button .cinepersona-btn-icon{width:1em;margin-right:.45em}.cinepersona-review-actions{align-items:center;flex-wrap:wrap}.cinepersona-review-action{font:650 14px/1.1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.cinepersona-review-action-link{min-width:0;margin-right:auto;border-color:transparent!important;padding-left:0;padding-right:0;text-decoration:none;white-space:nowrap}.cinepersona-external-link{color:inherit;text-decoration:none}" +
             ".cinepersona-code-box{letter-spacing:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:26px;font-weight:700;text-align:center;padding:12px 10px;background:rgba(0,0,0,.06);border:1px dashed #315c9a;border-radius:10px;margin:12px 0 6px;user-select:all;cursor:pointer;transition:background .15s}.cinepersona-code-box:hover{background:rgba(0,0,0,.1)}.cinepersona-review-card.theme-dark .cinepersona-code-box{background:rgba(255,255,255,.08);color:#edf2f8;border-color:#8eb2e4}.cinepersona-review-card.theme-dark .cinepersona-code-box:hover{background:rgba(255,255,255,.14)}.cinepersona-code-hint{font-size:12px;color:#7b8797;text-align:center;margin:0 0 14px}.cinepersona-review-card.theme-dark .cinepersona-code-hint{color:#8f9ba8}.cinepersona-manual-toggle{color:#637083;font-size:12px;cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;margin-top:14px;display:inline-block}.cinepersona-review-card.theme-dark .cinepersona-manual-toggle{color:#aab5c4}.cinepersona-pulse-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#315c9a;margin-right:6px;vertical-align:middle;animation:cinepersona-pulse 1.4s infinite ease-in-out}.cinepersona-review-card.theme-dark .cinepersona-pulse-dot{background:#8eb2e4}@keyframes cinepersona-pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}";
         document.head.appendChild(style);
     }
