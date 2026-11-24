@@ -70,6 +70,39 @@ namespace Emby.Plugin.CinePersona
         public string DeviceCode { get; set; }
     }
 
+    public class CinePersonaSettingsResponse
+    {
+        public bool Success { get; set; }
+
+        public bool Configured { get; set; }
+
+        public bool Enabled { get; set; }
+
+        public string UserId { get; set; }
+    }
+
+    public class CinePersonaReviewResponse
+    {
+        public bool Success { get; set; }
+    }
+
+    public class CinePersonaDeviceCodeResponse
+    {
+        public bool Success { get; set; }
+
+        public string DeviceCode { get; set; }
+
+        public string UserCode { get; set; }
+
+        public string VerificationUrl { get; set; }
+
+        public string VerificationUrlComplete { get; set; }
+
+        public int ExpiresIn { get; set; }
+
+        public int Interval { get; set; }
+    }
+
     public class DevicePollResult
     {
         public bool Success { get; set; }
@@ -138,8 +171,9 @@ namespace Emby.Plugin.CinePersona
                 };
             }
 
-            return new
+            return new CinePersonaSettingsResponse
             {
+                Success = true,
                 Configured = profile != null && !string.IsNullOrWhiteSpace(profile.ApiKey),
                 Enabled = profile == null || profile.Enabled,
                 UserId = userId
@@ -175,7 +209,7 @@ namespace Emby.Plugin.CinePersona
 
             profile.Enabled = request?.Enabled ?? true;
             plugin?.SaveConfiguration();
-            return new
+            return new CinePersonaSettingsResponse
             {
                 Success = true,
                 Configured = true,
@@ -213,7 +247,7 @@ namespace Emby.Plugin.CinePersona
                     {
                         throw new InvalidOperationException(string.Format("CinePersona 申请设备码失败: {0}", responseBody));
                     }
-                    return _jsonSerializer.DeserializeFromString<object>(responseBody);
+                    return _jsonSerializer.DeserializeFromString<CinePersonaDeviceCodeResponse>(responseBody);
                 }
             }
         }
@@ -261,9 +295,10 @@ namespace Emby.Plugin.CinePersona
                         throw new InvalidOperationException(string.Format("CinePersona 轮询设备码失败: {0}", responseBody));
                     }
 
+                    DevicePollResult pollResult = null;
                     try
                     {
-                        var pollResult = _jsonSerializer.DeserializeFromString<DevicePollResult>(responseBody);
+                        pollResult = _jsonSerializer.DeserializeFromString<DevicePollResult>(responseBody);
                         if (pollResult != null && pollResult.Success && string.Equals(pollResult.Status, "approved", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(pollResult.ApiKey))
                         {
                             var profile = configuration.GetOrCreateUserProfile(userId);
@@ -280,7 +315,7 @@ namespace Emby.Plugin.CinePersona
                         // Ignore parse exceptions on non-approved states
                     }
 
-                    return _jsonSerializer.DeserializeFromString<object>(responseBody);
+                    return pollResult ?? new DevicePollResult { Success = false, Status = "pending" };
                 }
             }
         }
@@ -369,7 +404,7 @@ namespace Emby.Plugin.CinePersona
                 }
             }
 
-            return new
+            return new CinePersonaReviewResponse
             {
                 Success = true
             };

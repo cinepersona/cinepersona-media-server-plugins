@@ -1,18 +1,19 @@
 ---
 name: "CinePersona"
 guid: "f62e8471-469b-43d8-b57f-f4a4d7d10002"
-version: "0.2.12.0"
-targetAbi: "10.11.0.0"
-framework: "net9.0"
-overview: "Sync watched movies, ratings, and reviews with CinePersona."
+version: "1.2.0.0"
+targetAbi: "10.10.0.0"
+framework: "net8.0"
+overview: "Sync watched movies, TV episodes, ratings, and reviews with CinePersona."
 description: >
-  Automatically records movies watched to at least 80 percent in CinePersona,
+  Automatically records movies and TV episodes watched to at least 80 percent in CinePersona,
   with rating and review support from the movie details page.
-  The plugin reads only Jellyfin's local media metadata and sends the event to
+  The plugin reads only local media metadata and sends events to
   the CinePersona URL configured by the server administrator.
 category: "General"
 owner: "CinePersona"
 artifacts:
 - "Jellyfin.Plugin.CinePersona.dll"
 changelog: >
-  Add initial and periodic CinePersona to Emby watched-state/rating sync.
+  Add TV episode playback progress sync, fix Emby device-code JSON serialization,
+  settings bootstrap retry, and Web rating modal review preservation.

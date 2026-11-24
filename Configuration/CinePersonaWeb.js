@@ -17,12 +17,16 @@
 
     var state = {
         itemId: null,
+        loadingItemId: null,
         item: null,
         modal: null,
         rating: 0,
         hasSpoiler: false,
         activity: null,
         settings: { Configured: false, Enabled: true },
+        settingsLoaded: false,
+        settingsLoading: false,
+        settingsUserId: "",
         pollTimer: null
     };
 
@@ -718,13 +722,14 @@
             card.appendChild(actions);
 
             apiRequest("CinePersona/DeviceCode", { method: "POST" }).then(function (data) {
-                if (!data || !data.userCode) {
+                var userCode = data ? String(data.userCode || data.UserCode || "") : "";
+                var deviceCode = data ? String(data.deviceCode || data.DeviceCode || "") : "";
+                if (!userCode || !deviceCode) {
                     loadingText.textContent = "获取设备码失败，请重试或使用手动 Key。";
                     return;
                 }
 
                 codeContainer.innerHTML = "";
-                var userCode = String(data.userCode || "");
                 var codeBox = makeElement("div", "cinepersona-code-box", userCode);
                 codeBox.title = "点击复制";
 
@@ -743,7 +748,7 @@
                     }
                 });
 
-                var verifyUrl = (data.verificationUrl || "https://cinepersona.com/activate") + "?code=" + encodeURIComponent(userCode);
+                var verifyUrl = (data.verificationUrl || data.VerificationUrl || "https://cinepersona.com/activate") + "?code=" + encodeURIComponent(userCode);
                 var authLink = makeElement("a", "cinepersona-review-action primary", "打开网页授权 ↗");
                 authLink.href = verifyUrl;
                 authLink.target = "_blank";
@@ -765,11 +770,11 @@
                 codeContainer.appendChild(authLink);
                 codeContainer.appendChild(pollStatus);
 
-                var intervalMs = Math.max(Number(data.interval || 3), 2) * 1000;
+                var intervalMs = Math.max(Number(data.interval || data.Interval || 3), 2) * 1000;
                 state.pollTimer = window.setInterval(function () {
                     apiRequest("CinePersona/DevicePoll", {
                         method: "POST",
-                        body: JSON.stringify({ DeviceCode: data.deviceCode })
+                        body: JSON.stringify({ DeviceCode: deviceCode })
                     }).then(function (res) {
                         if (!res) return;
                         var s = (res.status || res.Status || "").toLowerCase();
@@ -971,22 +976,30 @@
     }
 
     function refresh() {
+        var activeUserId = currentUserId();
+        if (apiToken() && (!state.settingsLoaded || state.settingsUserId !== activeUserId)) {
+            refreshSettings();
+        }
         var itemId = currentItemId();
         if (!itemId) {
             removeCinePersonaLinks();
             state.itemId = null;
+            state.loadingItemId = null;
             state.item = null;
             state.activity = null;
             setTriggerVisible(false);
             closeModal();
             return;
         }
-        if (itemId === state.itemId && state.item) {
-            setTriggerVisible(state.item.Type === "Movie");
+        if (itemId === state.itemId && (state.item || state.loadingItemId === itemId)) {
+            if (state.item) {
+                setTriggerVisible(state.item.Type === "Movie");
+            }
             return;
         }
 
         state.itemId = itemId;
+        state.loadingItemId = itemId;
         state.item = null;
         state.activity = null;
         removeCinePersonaLinks();
@@ -995,6 +1008,7 @@
             if (state.itemId !== itemId) {
                 return;
             }
+            state.loadingItemId = null;
             state.item = item;
             state.activity = null;
             setTriggerVisible(item && item.Type === "Movie");
@@ -1006,6 +1020,11 @@
                     return;
                 }
                 state.activity = activity;
+                if (!state.settings || !state.settings.Configured) {
+                    state.settings = { Configured: true, Enabled: true };
+                    state.settingsLoaded = true;
+                    state.settingsUserId = currentUserId();
+                }
                 removeTriggers();
                 setTriggerVisible(true);
             }).catch(function () {
@@ -1013,6 +1032,7 @@
             });
         }).catch(function () {
             if (state.itemId === itemId) {
+                state.loadingItemId = null;
                 state.activity = null;
                 setTriggerVisible(false);
             }
@@ -1020,12 +1040,26 @@
     }
 
     function refreshSettings() {
-        getCinePersonaSettings().then(function (settings) {
-            state.settings = settings;
+        if (!apiToken() || state.settingsLoading) {
+            return;
+        }
+        var requestedUserId = currentUserId();
+        state.settingsLoading = true;
+        apiRequest("CinePersona/Settings").then(function (data) {
+            data = data || {};
+            state.settings = {
+                Configured: data.Configured !== undefined ? !!data.Configured : !!data.configured,
+                Enabled: data.Enabled !== undefined ? data.Enabled !== false : data.enabled !== false
+            };
+            state.settingsLoaded = true;
+            state.settingsUserId = requestedUserId;
+            state.settingsLoading = false;
             removeTriggers();
             if (state.item && state.item.Type === "Movie") {
                 setTriggerVisible(true);
             }
+        }).catch(function () {
+            state.settingsLoading = false;
         });
     }
 
