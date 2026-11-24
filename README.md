@@ -41,14 +41,16 @@ Official media server sync plugins for [CinePersona](https://cinepersona.com) �
 
 ### Emby
 
-Two Emby release builds are provided (do not install both at the same time):
+Pick **one** of the two Emby builds (never install both at the same time):
 
-- **`Emby.Plugin.CinePersona.dll` (Standard / Catalog build)**: Pure server-side playback, rating, and reverse sync using native Emby APIs without modifying Emby Web files.
-- **`Emby.Plugin.CinePersona.Geek.dll` (Geek build)**: Adds the embedded Emby Web movie detail rating & short-review dialog by injecting into `dashboard-ui/index.html`.
+| Build | File | Best for | Pairing |
+| :--- | :--- | :--- | :--- |
+| **Standard (Recommended)** | [`Emby.Plugin.CinePersona.dll`](https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.1/Emby.Plugin.CinePersona.dll) | Most users — pure server-side movie/TV & rating sync without modifying Emby Web files | API Key in Emby plugin settings |
+| **Web Rating (Geek / Optional)** | [`Emby.Plugin.CinePersona.Geek.dll`](https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.1/Emby.Plugin.CinePersona.Geek.dll) | Users who want the in-page `★` rating & short-review dialog shown in the screenshots above (injects into `dashboard-ui/index.html`) | 8-digit device code or API Key |
 
-1. Download the DLL from [GitHub Releases](https://github.com/cinepersona/cinepersona-media-server-plugins/releases) (or use `https://cinepersona.com/emby.json`).
+1. Download the single DLL you want above (or browse [GitHub Releases](https://github.com/cinepersona/cinepersona-media-server-plugins/releases)).
 2. Place the DLL into Emby Server's `plugins` folder and restart Emby.
-3. Configure your CinePersona API key (`https://cinepersona.com/settings/api-keys`) in the plugin settings.
+3. Connect your account via device code (Web Rating build) or paste your CinePersona API key (`https://cinepersona.com/settings/api-keys`) in plugin settings.
 
 ### Plex Relay
 

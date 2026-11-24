@@ -18,10 +18,12 @@
 - `Emby.Plugin.CinePersona`：Emby Server 4.8.x 原生 C# 插件（分标准审核版与 Geek 网页增强版）。
 - `plex/CinePersona.PlexRelay`：Plex Webhook 轻量转发服务（Go）。
 
-## Emby 发布通道
+## Emby 两个版本怎么选？（二选一，切勿同时安装）
 
-- **标准审核版（`Emby.Plugin.CinePersona.dll`）**：仅使用 Emby 原生插件配置页和服务端事件，不修改 Emby 网页文件、不注入 JavaScript；提供观看状态、个人评分同步与反向同步。
-- **Geek 增强版（`Emby.Plugin.CinePersona.Geek.dll`）**：在标准版基础上额外注入 Emby Web 电影详情页的评分、短评与剧透标记弹窗（会修改 `dashboard-ui/index.html`）。请勿与标准版同时安装。
+| 版本 | 下载文件 | 适合人群 | 绑定方式 |
+| :--- | :--- | :--- | :--- |
+| **标准版（推荐多数人）** | [`Emby.Plugin.CinePersona.dll`](https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.1/Emby.Plugin.CinePersona.dll) | 只需要后台自动同步电影/剧集进度与评分，不改动 Emby 网页文件，最稳定 | Emby 插件设置填 API Key |
+| **网页打分版（Geek 进阶）** | [`Emby.Plugin.CinePersona.Geek.dll`](https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.1/Emby.Plugin.CinePersona.Geek.dll) | 想在 Emby 电影详情页直接点「★ 评分 & 写短评」（如上方截图），会注入 `dashboard-ui/index.html` | 8 位设备码或 API Key |
 
 ## 安装方式
 
