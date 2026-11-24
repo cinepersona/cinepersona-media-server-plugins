@@ -12,8 +12,8 @@
       "changelog": "Add TV episode playback progress sync, fix Web rating modal review preservation, settings retry on boot, and Jellyfin save fallback.",
       "targetAbi": "10.10.0.0",
       "sourceUrl": "https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.0/cinepersona-jellyfin-1.2.0.zip",
-      "checksum": "",
-      "timestamp": "2026-11-24T09:55:00Z"
+      "checksum": "27ca06ef50a20112223682f4cbd17b43",
+      "timestamp": "2026-11-24T10:00:00Z"
     },
     {
       "version": "0.3.1.0",

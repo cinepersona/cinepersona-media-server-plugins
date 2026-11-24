@@ -4,6 +4,14 @@
 
 [CinePersona](https://cinepersona.com) 官方媒体服务器同步插件集合：电影与剧集播放完成度达到 80% 后，自动将观影记录与播放进度同步到 CinePersona；支持双向同步、设备码一键授权绑定以及网页端内嵌评分与短评弹窗。
 
+## 实机截图
+
+![媒体服务器网页端内嵌 CinePersona 10 星评分与短评弹窗](assets/screenshot-rating-modal.png)
+
+| 电影详情页操作栏同步评分入口 | RFC 8628 设备码一键授权绑定 |
+| :---: | :---: |
+| ![电影详情页原生操作栏中的 CinePersona 评分按钮](assets/screenshot-detail-action-bar.png) | ![RFC 8628 设备码授权弹窗](assets/screenshot-device-pairing.png) |
+
 ## 包含组件
 
 - `jellyfin/Jellyfin.Plugin.CinePersona`：Jellyfin 10.10+ 原生 C# 插件。

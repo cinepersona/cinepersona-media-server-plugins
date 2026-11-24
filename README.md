@@ -4,6 +4,14 @@
 
 Official media server sync plugins for [CinePersona](https://cinepersona.com) — automatically sync watched movies, TV episode playback progress, personal ratings, and short reviews between your media server and your CinePersona watch history.
 
+## Screenshots
+
+![CinePersona in-page 10-star rating and short review dialog inside the media server web UI](assets/screenshot-rating-modal.png)
+
+| In-Page Action Bar & Synced Score | One-Click RFC 8628 Device-Code Pairing |
+| :---: | :---: |
+| ![Synced CinePersona rating button in the movie detail action bar](assets/screenshot-detail-action-bar.png) | ![RFC 8628 device-code pairing modal](assets/screenshot-device-pairing.png) |
+
 ## Included Components
 
 - **`jellyfin/Jellyfin.Plugin.CinePersona`** — Native C# plugin for **Jellyfin 10.10+** (`.NET 8`).
