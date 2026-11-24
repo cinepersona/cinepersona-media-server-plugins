@@ -1,70 +1,59 @@
 # CinePersona Media Server Plugins
 
-CinePersona 的媒体服务器同步插件集合：电影播放完成度达到 80% 后，自动将观影记录同步到 CinePersona；电影个人评分也会同步，且不会覆盖已有评论。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-当前包含：
+Official media server sync plugins for [CinePersona](https://cinepersona.com) — automatically sync watched movies, TV episode playback progress, personal ratings, and short reviews between your media server and your CinePersona watch history.
 
-- `Emby.Plugin.CinePersona`：Emby 原生 C# 插件。
-- `jellyfin/Jellyfin.Plugin.CinePersona`：Jellyfin 原生 C# 插件。
-- `plex/CinePersona.PlexRelay`：Plex Webhook companion relay。Plex 官方目前没有等价的稳定原生服务端播放事件插件接口，因此这个组件负责接收 Plex Webhook 并转发到 CinePersona；它不绕过 Plex Pass 限制。
+## Included Components
 
-## Emby 发布通道
+- **`jellyfin/Jellyfin.Plugin.CinePersona`** — Native C# plugin for **Jellyfin 10.10+** (`.NET 8`).
+- **`Emby.Plugin.CinePersona`** — Native C# plugin for **Emby Server 4.8.x** (available in both a standard catalog build and a Geek build with Web UI rating injection).
+- **`plex/CinePersona.PlexRelay`** — Lightweight Go companion webhook relay for **Plex**.
 
-- **Marketplace build**：`Emby.Plugin.CinePersona.dll`。只使用 Emby 原生插件配置页和服务端事件，不修改 Emby 网页文件、不注入 JavaScript；提供电影观看状态、个人评分同步和反向同步，作为官方目录审核版本。
-- **Geek build**：`Emby.Plugin.CinePersona.Geek.dll`。额外注入 Emby Web 电影详情页评分/短评入口，仅供愿意自行安装和承担网页注入风险的用户使用。不要与 Marketplace build 同时安装。
+## Features
 
-插件发送到 CinePersona 的实际 API 路径是 `/v1/webhook/emby`、`/v1/webhook/jellyfin` 和 `/v1/webhook/plex`；服务器地址只需要填写 `https://cinepersona.com` 或 `https://test.gawyn.de`。
+- **Automatic Playback Scrobbling**: Marks movies and TV episodes as watched in CinePersona once playback reaches 80% completion (carries TMDB, IMDb, and TVDB provider IDs, title, year, and season/episode metadata).
+- **Bidirectional Sync**: Optionally syncs watched status and ratings back from CinePersona to your media server every 6 hours.
+- **RFC 8628 Device-Code Pairing**: Link each media server user to their own CinePersona account with a one-click browser verification code (or configure an API key manually at `https://cinepersona.com/settings/api-keys`).
+- **In-Page Rating & Short Review Dialog** *(Jellyfin & Emby Geek build)*: Adds a rating trigger right in the movie detail action bar to rate (1–10), write short reviews, mark spoilers, and jump straight to the CinePersona film page.
 
-## Emby Marketplace build 支持内容
+## Installation
 
-- Emby Server 4.8.x（当前按 4.8.10 API 构建）
-- 仅处理 `Movie`
-- 仅在 `PositionTicks / RunTimeTicks >= 0.8` 时同步
-- 支持 Emby 电影个人评分同步
-- 不修改 Emby 网页文件，不注入 JavaScript，不提供网页评分入口
-- 自动携带 TMDB ID、IMDb ID、片名和年份
-- 支持 CinePersona 正式环境和测试环境
+### Jellyfin
 
-Geek build 在以上基础上增加 Web 电影详情页的评分、短评和剧透标记入口；它会修改 Emby Web 的 `dashboard-ui/index.html`，仅供自行安装的极客用户使用。
+1. Open **Jellyfin Dashboard → Plugins → Repositories** and add the CinePersona repository URL:
+   ```text
+   https://cinepersona.com/jellyfin.json
+   ```
+   *(Or download the release zip manually from [GitHub Releases](https://github.com/cinepersona/cinepersona-media-server-plugins/releases).)*
+2. Install **CinePersona** from the Catalog and restart Jellyfin.
+3. Open the CinePersona plugin settings (or click the **Connect** button on any movie detail page) to pair your account via device code or paste a CinePersona API key (`sync.write` + `library.read`).
 
-## 视觉资源
+> **Note for Docker users**: The optional in-page Web rating button injects a `<script>` tag into Jellyfin's `jellyfin-web/index.html`. If your container mounts `jellyfin-web` read-only, server-side playback and rating sync still work normally without the Web overlay.
 
-`assets/emby-catalog-thumb.png` 是用于 Emby 插件目录的 16:9 横版封面，复用了 CinePersona 现有图标；`assets/emby-catalog-preview.png` 可作为目录详情页预览图。
+### Emby
 
-## 安装
+Two Emby release builds are provided (do not install both at the same time):
 
-1. 在 CinePersona 中创建 API Key，并授予 `sync.write` 权限。
-2. 从 GitHub Releases 下载 `Emby.Plugin.CinePersona.dll`（审核版）。
-3. 将 DLL 放入 Emby Server 的 `plugins` 目录并重启。
-4. 在 Emby 后台插件设置中填写 API Key 和 CinePersona 地址。
+- **`Emby.Plugin.CinePersona.dll` (Standard / Catalog build)**: Pure server-side playback, rating, and reverse sync using native Emby APIs without modifying Emby Web files.
+- **`Emby.Plugin.CinePersona.Geek.dll` (Geek build)**: Adds the embedded Emby Web movie detail rating & short-review dialog by injecting into `dashboard-ui/index.html`.
 
-需要网页评分弹窗的用户下载 `Emby.Plugin.CinePersona.Geek.dll`，不要与审核版同时安装。
+1. Download the DLL from [GitHub Releases](https://github.com/cinepersona/cinepersona-media-server-plugins/releases) (or use `https://cinepersona.com/emby.json`).
+2. Place the DLL into Emby Server's `plugins` folder and restart Emby.
+3. Configure your CinePersona API key (`https://cinepersona.com/settings/api-keys`) in the plugin settings.
 
-默认地址：`https://cinepersona.com`
+### Plex Relay
 
-测试地址：`https://test.gawyn.de`
+See [`plex/CinePersona.PlexRelay`](plex/CinePersona.PlexRelay) for running the lightweight Go webhook forwarder (`POST /v1/webhook/plex`).
 
-## 从源码构建
+## API Endpoints
 
-```bash
-dotnet build Emby.Plugin.CinePersona.csproj -c Release
-dotnet build jellyfin/Jellyfin.Plugin.CinePersona/Jellyfin.Plugin.CinePersona.csproj -c Release
-cd plex/CinePersona.PlexRelay
-go test ./...
-```
+Plugins communicate with CinePersona (`https://cinepersona.com` by default) via:
 
-Emby 输出文件位于：
+- `POST /v1/webhook/emby`, `POST /v1/webhook/jellyfin`, `POST /v1/webhook/plex`
+- `POST /open/v1/device/code`, `POST /open/v1/device/poll`
+- `GET /open/v1/movies/lookup/rating`
 
-Marketplace 输出文件位于：
+## License
 
-`bin/Release/netstandard2.0/Emby.Plugin.CinePersona.dll`
-
-Geek 输出文件位于：
-
-`bin/Release/netstandard2.0/Emby.Plugin.CinePersona.Geek.dll`
-
-Jellyfin 和 Plex 的说明分别见 [jellyfin/README.md](jellyfin/README.md) 与 [plex/README.md](plex/README.md)。
-
-## 隐私与安全
-
-插件只向配置的 CinePersona 地址发送观影事件和媒体识别信息，不会抓取 IMDb 或其他外部网站，也不会上传视频文件。
+MIT — see [LICENSE](LICENSE).

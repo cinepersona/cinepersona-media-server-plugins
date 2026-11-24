@@ -9,10 +9,10 @@
         }
     } catch (e) {}
 
-    if (window.__cinePersonaWebVersion === "0.3.1") {
+    if (window.__cinePersonaWebVersion === "1.2.0") {
         return;
     }
-    window.__cinePersonaWebVersion = "0.3.1";
+    window.__cinePersonaWebVersion = "1.2.0";
     window.__cinePersonaWebLoaded = true;
 
     var state = {
@@ -549,7 +549,7 @@
             keyInput.style.padding = "6px 10px";
 
             var keyLink = makeElement("a", "cinepersona-review-note", "获取 API Key ↗");
-            keyLink.href = "https://cinepersona.com/settings";
+            keyLink.href = "https://cinepersona.com/settings/api-keys";
             keyLink.target = "_blank";
             keyLink.rel = "noopener noreferrer";
 
@@ -650,7 +650,7 @@
             keyInput.style.padding = "6px 10px";
 
             var keyLink = makeElement("a", "cinepersona-review-note", "获取 API Key ↗");
-            keyLink.href = "https://cinepersona.com/settings";
+            keyLink.href = "https://cinepersona.com/settings/api-keys";
             keyLink.target = "_blank";
             keyLink.rel = "noopener noreferrer";
 
@@ -912,7 +912,7 @@
             status.style.color = "";
             status.textContent = "正在保存…";
             Promise.all([
-                saveNativeRating(state.item, state.rating),
+                saveNativeRating(state.item, state.rating).catch(function () {}),
                 sendToCinePersona(state.item, state.rating, reviewText, state.hasSpoiler)
             ]).then(function () {
                 if (state.item.UserData) {
@@ -921,6 +921,12 @@
                 } else {
                     state.item.UserData = { Rating: state.rating, Played: true };
                 }
+                state.activity = {
+                    Status: "WATCHED",
+                    Rating: state.rating,
+                    ReviewText: reviewText,
+                    HasSpoiler: state.hasSpoiler && reviewText.length > 0
+                };
                 storeRating(state.item.Id, state.rating);
                 storeSpoiler(state.item.Id, state.hasSpoiler && reviewText.length > 0);
                 removeTriggers();
