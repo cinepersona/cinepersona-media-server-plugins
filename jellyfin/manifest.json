@@ -8,6 +8,14 @@
   "imageUrl": "https://raw.githubusercontent.com/cinepersona/cinepersona-media-server-plugins/main/assets/cinepersona-icon.png",
   "versions": [
     {
+      "version": "1.2.2.0",
+      "changelog": "Automatically push owned movie TMDB/IMDb IDs and resolution tags (4K/1080p/720p) to CinePersona without exposing server URLs or keys.",
+      "targetAbi": "10.10.0.0",
+      "sourceUrl": "https://github.com/cinepersona/cinepersona-media-server-plugins/releases/download/v1.2.2/cinepersona-jellyfin-1.2.2.zip",
+      "checksum": "907d46e09dd88a85d1f579cdaeeb9732",
+      "timestamp": "2026-11-26T14:50:00Z"
+    },
+    {
       "version": "1.2.1.0",
       "changelog": "Enable plugin auto-update by default and polish dark-mode Web rating modal link buttons.",
       "targetAbi": "10.10.0.0",
