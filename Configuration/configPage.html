@@ -157,6 +157,11 @@
                     <span>启用 CinePersona → Emby 定期同步（每 6 小时）</span>
                 </label>
 
+                <label class="checkboxContainer">
+                    <input is="emby-checkbox" type="checkbox" id="chkMediaLibrarySync" />
+                    <span>自动同步在库电影清单到 CinePersona（仅上传公开片库 ID 与画质，不上传服务器地址与密钥）</span>
+                </label>
+
                 <h2 class="cinepersonaSectionTitle">其他用户</h2>
                 <div id="cinepersonaProfiles" class="cinepersonaProfiles"></div>
                 <button is="emby-button" type="button" class="button-submit" id="btnAddProfile">添加用户</button>

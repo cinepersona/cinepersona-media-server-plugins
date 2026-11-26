@@ -13,6 +13,8 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public bool ReverseSyncEnabled { get; set; } = true;
 
+    public bool MediaLibrarySyncEnabled { get; set; } = true;
+
     public string SyncUserId { get; set; } = string.Empty;
 
     public bool InitialSyncCompleted { get; set; }
@@ -100,4 +102,8 @@ public class UserSyncProfile
     public bool InitialSyncCompleted { get; set; }
 
     public DateTime? LastSyncAt { get; set; }
+
+    public DateTime? LastMediaLibrarySyncAt { get; set; }
+
+    public string LastMediaLibraryHash { get; set; } = string.Empty;
 }

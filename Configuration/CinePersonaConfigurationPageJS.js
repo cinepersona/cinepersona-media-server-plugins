@@ -4,6 +4,7 @@ define([], function () {
         var form;
         var mainApiKeyInput;
         var reverseSyncInput;
+        var mediaLibrarySyncInput;
         var profilesContainer;
         var addProfileButton;
         var saveButton;
@@ -19,6 +20,7 @@ define([], function () {
             form = page.querySelector("#cinepersonaConfigurationForm");
             mainApiKeyInput = page.querySelector("#txtApiKey");
             reverseSyncInput = page.querySelector("#chkReverseSync");
+            mediaLibrarySyncInput = page.querySelector("#chkMediaLibrarySync");
             profilesContainer = page.querySelector("#cinepersonaProfiles");
             addProfileButton = page.querySelector("#btnAddProfile");
             saveButton = page.querySelector("#btnSave");
@@ -244,6 +246,9 @@ define([], function () {
                 if (reverseSyncInput) {
                     reverseSyncInput.checked = config.ReverseSyncEnabled !== false;
                 }
+                if (mediaLibrarySyncInput) {
+                    mediaLibrarySyncInput.checked = config.MediaLibrarySyncEnabled !== false;
+                }
                 renderProfiles(profiles.filter(function (profile) {
                     return !mainUserId || String(profile.UserId || profile.userId || "").toLowerCase() !== mainUserId.toLowerCase();
                 }));
@@ -279,6 +284,9 @@ define([], function () {
                 }
                 if (reverseSyncInput) {
                     config.ReverseSyncEnabled = reverseSyncInput.checked;
+                }
+                if (mediaLibrarySyncInput) {
+                    config.MediaLibrarySyncEnabled = mediaLibrarySyncInput.checked;
                 }
                 var profiles = collectProfiles().filter(function (profile) {
                     return String(profile.UserId || "").toLowerCase() !== mainUserId.toLowerCase();

@@ -30,6 +30,7 @@ public sealed class ServerEntryPoint : IHostedService
     private static readonly HttpClient HttpClient = new();
 
     private readonly TvProgressSync _tvProgress = new(HttpClient, value => JsonSerializer.Serialize(value));
+    private readonly MediaLibrarySync _mediaLibrarySync = new(HttpClient, value => JsonSerializer.Serialize(value));
     private readonly ISessionManager _sessionManager;
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
@@ -115,14 +116,15 @@ public sealed class ServerEntryPoint : IHostedService
     private async Task PullAndApplyReverseSyncAsync()
     {
         var configuration = Plugin.Instance?.Configuration;
-        if (configuration is null || !configuration.ReverseSyncEnabled || _userDataManager is null)
+        if (configuration is null || (!configuration.ReverseSyncEnabled && !configuration.MediaLibrarySyncEnabled))
         {
             return;
         }
 
-        var profiles = configuration.GetConfiguredUserProfiles();
+        var profiles = configuration.GetConfiguredUserProfiles().ToList();
         var now = DateTime.UtcNow;
-        var hasPendingSync = false;
+        var hasPendingReverseSync = false;
+        var hasPendingMediaLibSync = false;
         foreach (var profile in profiles)
         {
             var apiKey = profile.ApiKey.Trim();
@@ -131,28 +133,42 @@ public sealed class ServerEntryPoint : IHostedService
                 continue;
             }
 
-            var isInitialSync = !profile.InitialSyncCompleted;
-            if (isInitialSync
-                || !profile.LastSyncAt.HasValue
-                || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+            if (configuration.ReverseSyncEnabled && _userDataManager is not null)
             {
-                hasPendingSync = true;
-                break;
+                var isInitialSync = !profile.InitialSyncCompleted;
+                if (isInitialSync
+                    || !profile.LastSyncAt.HasValue
+                    || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+                {
+                    hasPendingReverseSync = true;
+                }
+            }
+
+            if (configuration.MediaLibrarySyncEnabled
+                && (!profile.LastMediaLibrarySyncAt.HasValue
+                    || now - profile.LastMediaLibrarySyncAt.Value.ToUniversalTime() >= ReverseSyncInterval))
+            {
+                hasPendingMediaLibSync = true;
             }
         }
 
-        if (!hasPendingSync)
+        if (!hasPendingReverseSync && !hasPendingMediaLibSync)
         {
             return;
         }
 
-        var movies = _libraryManager.GetItemList(new InternalItemsQuery
+        IDictionary<string, Movie>? movieIndex = null;
+        if (hasPendingReverseSync)
         {
-            IncludeItemTypes = new[] { BaseItemKind.Movie },
-            Recursive = true,
-            EnableTotalRecordCount = false
-        });
-        var movieIndex = BuildMovieIndex(movies);
+            var movies = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Movie },
+                Recursive = true,
+                EnableTotalRecordCount = false
+            });
+            movieIndex = BuildMovieIndex(movies);
+        }
+
         var changed = false;
         foreach (var profile in profiles)
         {
@@ -162,70 +178,146 @@ public sealed class ServerEntryPoint : IHostedService
                 continue;
             }
 
-            var isInitialSync = !profile.InitialSyncCompleted;
-            now = DateTime.UtcNow;
-            if (!isInitialSync
-                && profile.LastSyncAt.HasValue
-                && now - profile.LastSyncAt.Value.ToUniversalTime() < ReverseSyncInterval)
-            {
-                continue;
-            }
-
             var user = _userManager.GetUserById(userId);
             if (user is null)
             {
-                _logger.LogWarning("CinePersona reverse sync user was not found: {UserId}", profile.UserId);
+                _logger.LogWarning("CinePersona sync user was not found: {UserId}", profile.UserId);
                 continue;
             }
 
-            DateTime? since = null;
-            if (!isInitialSync && profile.LastSyncAt.HasValue)
+            now = DateTime.UtcNow;
+            if (configuration.ReverseSyncEnabled && _userDataManager is not null && movieIndex is not null)
             {
-                since = profile.LastSyncAt.Value.ToUniversalTime().AddMinutes(-5);
+                var isInitialSync = !profile.InitialSyncCompleted;
+                if (isInitialSync
+                    || !profile.LastSyncAt.HasValue
+                    || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+                {
+                    DateTime? since = null;
+                    if (!isInitialSync && profile.LastSyncAt.HasValue)
+                    {
+                        since = profile.LastSyncAt.Value.ToUniversalTime().AddMinutes(-5);
+                    }
+
+                    var offset = 0;
+                    var imported = 0;
+                    var matched = 0;
+                    for (var pageNumber = 0; pageNumber < 100; pageNumber++)
+                    {
+                        var page = await FetchSyncPageAsync(configuration, apiKey, since, offset).ConfigureAwait(false);
+                        var activities = page.Activities ?? Array.Empty<SyncActivity>();
+                        foreach (var activity in activities)
+                        {
+                            imported++;
+                            if (ApplySyncActivity(user, activity, movieIndex))
+                            {
+                                matched++;
+                            }
+                        }
+
+                        if (page.Paging is null || !page.Paging.HasMore || activities.Length == 0)
+                        {
+                            break;
+                        }
+
+                        offset += activities.Length;
+                        if (pageNumber == 99)
+                        {
+                            throw new InvalidOperationException("CinePersona reverse sync exceeded 100 pages");
+                        }
+                    }
+
+                    profile.InitialSyncCompleted = true;
+                    profile.LastSyncAt = now;
+                    changed = true;
+                    _logger.LogInformation(
+                        "CinePersona reverse sync completed for user {UserId}: {Imported} records, {Matched} local movies",
+                        profile.UserId,
+                        imported,
+                        matched);
+                }
             }
 
-            var offset = 0;
-            var imported = 0;
-            var matched = 0;
-            for (var pageNumber = 0; pageNumber < 100; pageNumber++)
+            if (configuration.MediaLibrarySyncEnabled
+                && (!profile.LastMediaLibrarySyncAt.HasValue
+                    || now - profile.LastMediaLibrarySyncAt.Value.ToUniversalTime() >= ReverseSyncInterval))
             {
-                var page = await FetchSyncPageAsync(configuration, apiKey, since, offset).ConfigureAwait(false);
-                var activities = page.Activities ?? Array.Empty<SyncActivity>();
-                foreach (var activity in activities)
+                try
                 {
-                    imported++;
-                    if (ApplySyncActivity(user, activity, movieIndex))
+                    var userMovies = _libraryManager.GetItemList(new InternalItemsQuery(user)
                     {
-                        matched++;
+                        IncludeItemTypes = new[] { BaseItemKind.Movie },
+                        Recursive = true,
+                        EnableTotalRecordCount = false
+                    });
+                    var snapshotItems = BuildMediaLibraryInputs(userMovies);
+                    var result = await _mediaLibrarySync.PushAsync(
+                        configuration.ServerUrl,
+                        apiKey,
+                        "jellyfin",
+                        "jellyfin-plugin",
+                        "plugin",
+                        snapshotItems,
+                        profile.LastMediaLibraryHash,
+                        profile.LastMediaLibrarySyncAt).ConfigureAwait(false);
+
+                    profile.LastMediaLibrarySyncAt = now;
+                    if (!string.IsNullOrEmpty(result.Fingerprint))
+                    {
+                        profile.LastMediaLibraryHash = result.Fingerprint;
+                    }
+                    changed = true;
+                    if (result.Pushed)
+                    {
+                        _logger.LogInformation(
+                            "CinePersona media library sync pushed {Count} movies for user {UserId}",
+                            result.ItemCount,
+                            profile.UserId);
                     }
                 }
-
-                if (page.Paging is null || !page.Paging.HasMore || activities.Length == 0)
+                catch (Exception ex)
                 {
-                    break;
-                }
-
-                offset += activities.Length;
-                if (pageNumber == 99)
-                {
-                    throw new InvalidOperationException("CinePersona reverse sync exceeded 100 pages");
+                    _logger.LogWarning(ex, "CinePersona media library sync failed for user {UserId}", profile.UserId);
                 }
             }
-
-            profile.InitialSyncCompleted = true;
-            profile.LastSyncAt = now;
-            changed = true;
-            _logger.LogInformation(
-                "CinePersona reverse sync completed for user {UserId}: {Imported} records, {Matched} local movies",
-                profile.UserId,
-                imported,
-                matched);
         }
 
         if (changed)
         {
             Plugin.Instance?.SaveConfiguration();
         }
+    }
+
+    private static List<MediaLibraryEntryInput> BuildMediaLibraryInputs(IEnumerable<BaseItem> items)
+    {
+        var list = new List<MediaLibraryEntryInput>();
+        foreach (var item in items)
+        {
+            if (item is not Movie movie || movie.ProviderIds is null)
+            {
+                continue;
+            }
+
+            movie.ProviderIds.TryGetValue("Imdb", out var imdb);
+            int tmdb = 0;
+            if (movie.ProviderIds.TryGetValue("Tmdb", out var tmdbRaw) && !string.IsNullOrWhiteSpace(tmdbRaw))
+            {
+                int.TryParse(tmdbRaw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out tmdb);
+            }
+            if (string.IsNullOrWhiteSpace(imdb) && tmdb <= 0)
+            {
+                continue;
+            }
+
+            list.Add(new MediaLibraryEntryInput
+            {
+                Imdb = imdb,
+                Tmdb = tmdb,
+                Width = movie.Width,
+                Height = movie.Height
+            });
+        }
+        return list;
     }
 
     private async Task<SyncPullResponse> FetchSyncPageAsync(

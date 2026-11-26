@@ -48,6 +48,30 @@ foreach (var status in new[] { HttpStatusCode.NotFound, HttpStatusCode.Conflict,
 }
 Console.WriteLine("All TV progress contract checks passed.");
 
+// Media library snapshot push contract checks
+var mediaSync = new MediaLibrarySync(new HttpClient(http), value => JsonSerializer.Serialize(value), () => now);
+var rawMedia = new[]
+{
+    new MediaLibraryEntryInput { Tmdb = 129, Imdb = "tt0245429", Width = 1920, Height = 1080 },
+    new MediaLibraryEntryInput { Tmdb = 129, Imdb = "TT0245429", Width = 3840, Height = 2160 },
+    new MediaLibraryEntryInput { Tmdb = 0, Imdb = "tt0111161", Width = 1280, Height = 720 },
+    new MediaLibraryEntryInput { Tmdb = 0, Imdb = "bad-id", Width = 1920, Height = 1080 }
+};
+var mlBefore = http.Bodies.Count;
+var mlRes1 = await mediaSync.PushAsync("https://test.gawyn.de", "test-only-key", "jellyfin", "My NAS!", "plugin", rawMedia, null, null);
+Check(mlRes1.Pushed && mlRes1.ItemCount == 2 && !string.IsNullOrEmpty(mlRes1.Fingerprint), "media library pushes deduplicated valid items");
+Check(http.Paths[mlBefore] == "/open/v1/media-library/jellyfin", "media library targets /open/v1/media-library/{source}");
+var mlDoc = JsonDocument.Parse(http.Bodies[mlBefore]).RootElement;
+Check(mlDoc.GetProperty("server").GetString() == "My-NAS" && mlDoc.GetProperty("client").GetString() == "plugin", "server key normalized and client set");
+var mlItems = mlDoc.GetProperty("items");
+Check(mlItems.GetArrayLength() == 2 && mlItems[1].GetProperty("tmdb").GetInt32() == 129 && mlItems[1].GetProperty("quality").GetString() == "4K", "duplicate movie keeps highest resolution");
+var mlRes2 = await mediaSync.PushAsync("https://test.gawyn.de", "test-only-key", "jellyfin", "My NAS!", "plugin", rawMedia, mlRes1.Fingerprint, now);
+Check(mlRes2.Skipped && !mlRes2.Pushed && http.Bodies.Count == mlBefore + 1, "unchanged snapshot skipped within 24h");
+now = now.AddHours(25);
+var mlRes3 = await mediaSync.PushAsync("https://test.gawyn.de", "test-only-key", "jellyfin", "My NAS!", "plugin", rawMedia, mlRes1.Fingerprint, now.AddHours(-25));
+Check(mlRes3.Pushed && http.Bodies.Count == mlBefore + 2, "24h heartbeat refreshes snapshot");
+Console.WriteLine("All media library contract checks passed.");
+
 sealed class CaptureHandler : HttpMessageHandler
 {
     public List<string> Bodies { get; } = new();

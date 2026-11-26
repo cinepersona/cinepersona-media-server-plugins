@@ -29,6 +29,7 @@ namespace Emby.Plugin.CinePersona
         private static readonly HttpClient HttpClient = new HttpClient();
 
         private readonly TvProgressSync _tvProgress;
+        private readonly MediaLibrarySync _mediaLibrarySync;
         private readonly ISessionManager _sessionManager;
         private readonly IUserDataManager _userDataManager;
         private readonly IUserManager _userManager;
@@ -53,6 +54,7 @@ namespace Emby.Plugin.CinePersona
             _logger = logManager.GetLogger("CinePersona");
             _jsonSerializer = jsonSerializer;
             _tvProgress = new TvProgressSync(HttpClient, value => _jsonSerializer.SerializeToString(value));
+            _mediaLibrarySync = new MediaLibrarySync(HttpClient, value => _jsonSerializer.SerializeToString(value));
         }
 
         public void Run()
@@ -167,14 +169,15 @@ namespace Emby.Plugin.CinePersona
         {
             var plugin = Plugin.Instance;
             var configuration = plugin?.Configuration;
-            if (configuration == null || !configuration.ReverseSyncEnabled)
+            if (configuration == null || (!configuration.ReverseSyncEnabled && !configuration.MediaLibrarySyncEnabled))
             {
                 return;
             }
 
-            var profiles = configuration.GetConfiguredUserProfiles();
+            var profiles = new List<UserSyncProfile>(configuration.GetConfiguredUserProfiles());
             var now = DateTime.UtcNow;
-            var hasPendingSync = false;
+            var hasPendingReverseSync = false;
+            var hasPendingMediaLibSync = false;
             foreach (var profile in profiles)
             {
                 var apiKey = (profile.ApiKey ?? string.Empty).Trim();
@@ -183,28 +186,42 @@ namespace Emby.Plugin.CinePersona
                     continue;
                 }
 
-                var isInitialSync = !profile.InitialSyncCompleted;
-                if (isInitialSync
-                    || !profile.LastSyncAt.HasValue
-                    || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+                if (configuration.ReverseSyncEnabled)
                 {
-                    hasPendingSync = true;
-                    break;
+                    var isInitialSync = !profile.InitialSyncCompleted;
+                    if (isInitialSync
+                        || !profile.LastSyncAt.HasValue
+                        || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+                    {
+                        hasPendingReverseSync = true;
+                    }
+                }
+
+                if (configuration.MediaLibrarySyncEnabled
+                    && (!profile.LastMediaLibrarySyncAt.HasValue
+                        || now - profile.LastMediaLibrarySyncAt.Value.ToUniversalTime() >= ReverseSyncInterval))
+                {
+                    hasPendingMediaLibSync = true;
                 }
             }
 
-            if (!hasPendingSync)
+            if (!hasPendingReverseSync && !hasPendingMediaLibSync)
             {
                 return;
             }
 
-            var movies = _libraryManager.GetItemList(new InternalItemsQuery
+            IDictionary<string, Movie> movieIndex = null;
+            if (hasPendingReverseSync)
             {
-                IncludeItemTypes = new[] { "Movie" },
-                Recursive = true,
-                EnableTotalRecordCount = false
-            });
-            var movieIndex = BuildMovieIndex(movies);
+                var movies = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { "Movie" },
+                    Recursive = true,
+                    EnableTotalRecordCount = false
+                });
+                movieIndex = BuildMovieIndex(movies);
+            }
+
             var changed = false;
             foreach (var profile in profiles)
             {
@@ -214,66 +231,139 @@ namespace Emby.Plugin.CinePersona
                     continue;
                 }
 
-                var isInitialSync = !profile.InitialSyncCompleted;
-                now = DateTime.UtcNow;
-                if (!isInitialSync
-                    && profile.LastSyncAt.HasValue
-                    && now - profile.LastSyncAt.Value.ToUniversalTime() < ReverseSyncInterval)
-                {
-                    continue;
-                }
-
                 var user = _userManager.GetUserById(userId);
                 if (user == null)
                 {
-                    _logger.Warn($"CinePersona 反向同步找不到 Emby 用户: {profile.UserId}");
+                    _logger.Warn($"CinePersona 同步找不到 Emby 用户: {profile.UserId}");
                     continue;
                 }
 
-                DateTime? since = null;
-                if (!isInitialSync && profile.LastSyncAt.HasValue)
+                now = DateTime.UtcNow;
+                if (configuration.ReverseSyncEnabled && movieIndex != null)
                 {
-                    since = profile.LastSyncAt.Value.ToUniversalTime().AddMinutes(-5);
+                    var isInitialSync = !profile.InitialSyncCompleted;
+                    if (isInitialSync
+                        || !profile.LastSyncAt.HasValue
+                        || now - profile.LastSyncAt.Value.ToUniversalTime() >= ReverseSyncInterval)
+                    {
+                        DateTime? since = null;
+                        if (!isInitialSync && profile.LastSyncAt.HasValue)
+                        {
+                            since = profile.LastSyncAt.Value.ToUniversalTime().AddMinutes(-5);
+                        }
+
+                        var offset = 0;
+                        var imported = 0;
+                        var matched = 0;
+                        for (var pageNumber = 0; pageNumber < 100; pageNumber++)
+                        {
+                            var page = await FetchSyncPageAsync(configuration, apiKey, since, offset).ConfigureAwait(false);
+                            var activities = page.Activities ?? new SyncActivity[0];
+                            foreach (var activity in activities)
+                            {
+                                imported++;
+                                if (ApplySyncActivity(user, activity, movieIndex))
+                                {
+                                    matched++;
+                                }
+                            }
+
+                            if (page.Paging == null || !page.Paging.HasMore || activities.Length == 0)
+                            {
+                                break;
+                            }
+
+                            offset += activities.Length;
+                            if (pageNumber == 99)
+                            {
+                                throw new InvalidOperationException("CinePersona 反向同步超过 100 页，已中止");
+                            }
+                        }
+
+                        profile.InitialSyncCompleted = true;
+                        profile.LastSyncAt = now;
+                        changed = true;
+                        _logger.Info($"CinePersona 反向同步完成: 用户 {profile.UserId}，{imported} 条记录，匹配本地电影 {matched} 条");
+                    }
                 }
 
-                var offset = 0;
-                var imported = 0;
-                var matched = 0;
-                for (var pageNumber = 0; pageNumber < 100; pageNumber++)
+                if (configuration.MediaLibrarySyncEnabled
+                    && (!profile.LastMediaLibrarySyncAt.HasValue
+                        || now - profile.LastMediaLibrarySyncAt.Value.ToUniversalTime() >= ReverseSyncInterval))
                 {
-                    var page = await FetchSyncPageAsync(configuration, apiKey, since, offset).ConfigureAwait(false);
-                    var activities = page.Activities ?? new SyncActivity[0];
-                    foreach (var activity in activities)
+                    try
                     {
-                        imported++;
-                        if (ApplySyncActivity(user, activity, movieIndex))
+                        var userMovies = _libraryManager.GetItemList(new InternalItemsQuery(user)
                         {
-                            matched++;
+                            IncludeItemTypes = new[] { "Movie" },
+                            Recursive = true,
+                            EnableTotalRecordCount = false
+                        });
+                        var snapshotItems = BuildMediaLibraryInputs(userMovies);
+                        var result = await _mediaLibrarySync.PushAsync(
+                            configuration.ServerUrl,
+                            apiKey,
+                            "emby",
+                            "emby-plugin",
+                            "plugin",
+                            snapshotItems,
+                            profile.LastMediaLibraryHash,
+                            profile.LastMediaLibrarySyncAt).ConfigureAwait(false);
+
+                        profile.LastMediaLibrarySyncAt = now;
+                        if (!string.IsNullOrEmpty(result.Fingerprint))
+                        {
+                            profile.LastMediaLibraryHash = result.Fingerprint;
+                        }
+                        changed = true;
+                        if (result.Pushed)
+                        {
+                            _logger.Info($"CinePersona 媒体库库存同步完成: 用户 {profile.UserId}，推送 {result.ItemCount} 部电影");
                         }
                     }
-
-                    if (page.Paging == null || !page.Paging.HasMore || activities.Length == 0)
+                    catch (Exception ex)
                     {
-                        break;
-                    }
-
-                    offset += activities.Length;
-                    if (pageNumber == 99)
-                    {
-                        throw new InvalidOperationException("CinePersona 反向同步超过 100 页，已中止");
+                        _logger.ErrorException($"CinePersona 媒体库库存同步失败: 用户 {profile.UserId}", ex);
                     }
                 }
-
-                profile.InitialSyncCompleted = true;
-                profile.LastSyncAt = now;
-                changed = true;
-                _logger.Info($"CinePersona 反向同步完成: 用户 {profile.UserId}，{imported} 条记录，匹配本地电影 {matched} 条");
             }
 
             if (changed)
             {
                 plugin.SaveConfiguration();
             }
+        }
+
+        private static List<MediaLibraryEntryInput> BuildMediaLibraryInputs(IEnumerable<BaseItem> items)
+        {
+            var list = new List<MediaLibraryEntryInput>();
+            foreach (var item in items)
+            {
+                if (!(item is Movie movie) || movie.ProviderIds == null)
+                {
+                    continue;
+                }
+
+                movie.ProviderIds.TryGetValue("Imdb", out var imdb);
+                var tmdb = 0;
+                if (movie.ProviderIds.TryGetValue("Tmdb", out var tmdbRaw) && !string.IsNullOrWhiteSpace(tmdbRaw))
+                {
+                    int.TryParse(tmdbRaw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out tmdb);
+                }
+                if (string.IsNullOrWhiteSpace(imdb) && tmdb <= 0)
+                {
+                    continue;
+                }
+
+                list.Add(new MediaLibraryEntryInput
+                {
+                    Imdb = imdb,
+                    Tmdb = tmdb,
+                    Width = movie.Width,
+                    Height = movie.Height
+                });
+            }
+            return list;
         }
 
         private async Task<SyncPullResponse> FetchSyncPageAsync(
